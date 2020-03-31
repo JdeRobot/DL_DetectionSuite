@@ -2,6 +2,7 @@
 #include <DatasetConverters/ClassTypeGeneric.h>
 #include "KerasInferencer.h"
 #include <glog/logging.h>
+
 KerasInferencer::KerasInferencer(const std::string &netConfig, const std::string &netWeights,const std::string& classNamesFile): netConfig(netConfig),netWeights(netWeights) {
 
 	this->classNamesFile=classNamesFile;
@@ -26,7 +27,7 @@ KerasInferencer::KerasInferencer(const std::string &netConfig, const std::string
 
 	LOG(INFO) << "InterPreter Initailized" << '\n';
 
-	pName = PyString_FromString("keras_detect");
+	pName = PyUnicode_FromString("keras_detect");
 
 
 	pModule = PyImport_Import(pName);
@@ -39,13 +40,13 @@ KerasInferencer::KerasInferencer(const std::string &netConfig, const std::string
 
 		pArgs = PyTuple_New(1);
 
-		pmodel = PyString_FromString(netWeights.c_str());
+		pmodel = PyUnicode_FromString(netWeights.c_str());
 
 
 		/* pValue reference stolen here: */
 		PyTuple_SetItem(pArgs, 0, pmodel);
 		/* pFunc is a new reference */
-		pInstance = PyInstance_New(pClass, pArgs, NULL);
+		pInstance = PyObject_CallObject(pClass, pArgs);
 
 		if (pInstance == NULL)
 		{
@@ -62,10 +63,15 @@ KerasInferencer::KerasInferencer(const std::string &netConfig, const std::string
 	LOG(INFO) << "Loaded Keras Model" << '\n';
 
 }
-
-void KerasInferencer::init()
+#if PY_MAJOR_VERSION >= 3
+int*
+#else
+void
+#endif 
+KerasInferencer::init()
 {
-	import_array();
+	import_array();//seems to return NULL with python3 and nothing with python2 
+//ideally should not be placed inside a seperate function
 }
 
 Sample KerasInferencer::detectImp(const cv::Mat &image, double confidence_threshold) {
@@ -197,7 +203,7 @@ int KerasInferencer::getKerasInferences(const cv::Mat& image, double confidence_
 	}
 
 	//pValue = PyObject_CallObject(pFunc, pArgs);
-	pValue = PyObject_CallMethodObjArgs(pInstance, PyString_FromString("detect"), mynparr, conf, NULL);
+	pValue = PyObject_CallMethodObjArgs(pInstance, PyUnicode_FromString("detect"), mynparr, conf, NULL);
 
 	Py_DECREF(pArgs);
     if (pValue != NULL) {
